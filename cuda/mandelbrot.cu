@@ -13,12 +13,48 @@ const int NUM_TILES_1D = 100;
 const int SAMPLES_IN_BATCH = 100;
 const double width = 3. / NUM_TILES_1D;
 const double height = 3. / NUM_TILES_1D;
-const double EPSILON = 0.01;
+
+// Precision for double comparison in AreSame
+const double EPSILON = 1e-9;
+
+// ============ TOOLS ================
+__global__ void hello_world_gpu()
+{
+  printf("Hello World from the GPU at block %u, thread %u \n", blockIdx.x, threadIdx.x);
+}
 
 bool AreSame(double a, double b)
 {
   return fabs(a - b) < EPSILON;
 }
+
+double xmin(int j)
+{
+  return -2 + width * j;
+}
+
+double ymin(int i)
+{
+  return -3 / 2 + height * i;
+}
+
+double wald_uncertainty(double numer, double denom)
+{
+  if (AreSame(numer, 0.))
+  {
+    numer = 1.0;
+    denom++;
+  }
+  else if (AreSame(numer, denom))
+  {
+    denom++;
+  }
+
+  double frac = numer / denom;
+  return sqrt(frac * (1.0 - frac) / denom);
+}
+
+// ============ MANDELBROT STUFF ================
 
 bool is_in_mandelbrot(const double x, const double y)
 {
@@ -65,42 +101,6 @@ double count_mandelbrot(mt19937 rng, int num_samples, double x_min, double width
   return out;
 }
 
-// __global__ void hello_world_gpu()
-// {
-//   printf("Hello World from the GPU at block %u, thread %u \n", blockIdx.x, threadIdx.x);
-// }
-
-// void hello_world_cpu()
-// {
-//   printf("Hello World from the CPU \n");
-// }
-
-double wald_uncertainty(double numer, double denom)
-{
-  if (AreSame(numer, 0.))
-  {
-    numer = 1.0;
-    denom++;
-  }
-  else if (AreSame(numer, denom))
-  {
-    denom++;
-  }
-
-  double frac = numer / denom;
-  return sqrt(frac * (1.0 - frac) / denom);
-}
-
-double xmin(int j)
-{
-  return -2 + width * j;
-}
-
-double ymin(int i)
-{
-  return -3 / 2 + height * i;
-}
-
 void compute_until(vector<mt19937> &random_generators, vector<vector<double>> &numer, vector<vector<double>> &denom, vector<vector<double>> &uncert, double uncert_target)
 {
   for (int i = 0; i < NUM_TILES_1D; i++)
@@ -119,6 +119,13 @@ void compute_until(vector<mt19937> &random_generators, vector<vector<double>> &n
 
 int main(int argc, char *argv[])
 {
+  // if (argc != 3)
+  // {
+  //   cout << "Need two arguments: number of blocks and number of threads" << endl;
+  //   return -1;
+  // }
+
+  // Initialization
   vector<vector<double>> numer(NUM_TILES_1D, vector<double>(NUM_TILES_1D));
   vector<vector<double>> denom(NUM_TILES_1D, vector<double>(NUM_TILES_1D));
   vector<vector<double>> uncert(NUM_TILES_1D, vector<double>(NUM_TILES_1D));
@@ -131,29 +138,32 @@ int main(int argc, char *argv[])
       uncert[i][j] = 0.;
     }
 
+  // random number generators & seeding
   vector<mt19937> rngs(NUM_TILES_1D * NUM_TILES_1D);
   for (int i = 0; i < NUM_TILES_1D * NUM_TILES_1D; i++)
     rngs[i].seed(i);
 
-  compute_until(rngs, numer, denom, uncert, 1e-3);
+  // DO IT!
+  compute_until(rngs, numer, denom, uncert, 1e-2);
+
+  // getting the result
   double final_value = 0;
   for (int i = 0; i < NUM_TILES_1D; i++)
     for (int j = 0; j < NUM_TILES_1D; j++)
     {
       final_value += (numer[i][j] / denom[i][j]) * width * height;
     }
+  printf("final value %lf", final_value);
 
-  // // hello_world_cpu();
+  // const int n_blocks = 1;  // atoi(argv[argc - 2]);
+  // const int n_threads = 1; // atoi(argv[argc - 1]);
 
-  // // const int n_blocks = atoi(argv[argc - 2]);
-  // // const int n_threads = atoi(argv[argc - 1]);
+  // dim3 grid_dim(n_blocks);
+  // dim3 block_dim(n_threads);
 
-  // // dim3 grid_dim(n_blocks);
-  // // dim3 block_dim(n_threads);
+  // hello_world_gpu<<<grid_dim, block_dim>>>();
 
-  // // hello_world_gpu<<<grid_dim, block_dim>>>();
-
-  // // cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
 
   return 0;
 }
