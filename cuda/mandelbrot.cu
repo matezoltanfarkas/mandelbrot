@@ -1,8 +1,51 @@
 #include <stdio.h>
 #include <iostream>
 #include <cmath>
+#include <complex>
+#include <chrono>
+#include <cstdio>
+#include <random>
 
 using namespace std;
+
+bool is_in_mandelbrot(const double x, const double y) {
+    // Tortoise and Hare approach to check if point (x, y) is in Mandelbrot set.
+    std::complex<double> z_hare(0.0, 0.0);
+    std::complex<double> z_tortoise(0.0, 0.0);
+    std::complex<double> c(x, y);
+    while (true) {
+        z_hare = z_hare * z_hare + c;
+        z_hare = z_hare * z_hare + c;
+        z_tortoise = z_tortoise * z_tortoise + c;
+        if(z_hare == z_tortoise){
+            return true; 
+        }
+        float criteria = std::pow(z_hare.real(), 2) + std::pow(z_hare.imag(), 2);
+        if (criteria > 4.0) {
+            return false;  
+        }
+    }
+}
+
+int count_mandelbrot(const int num_samples, const double x_min, const double width, const double y_min, const double height){
+    int out=0;
+
+    // Random number generator
+    std::random_device rd;  // Seed for the random number engine
+    std::mt19937 gen(rd()); // Mersenne Twister engine
+    std::uniform_real_distribution<double> dist(0.0f, 1.0f); // Uniform distribution between 0 and 1
+    
+    for (int i = 0; i < num_samples; ++i) {
+        double x_norm = dist(gen);
+        double y_norm = dist(gen);
+        double x = x_min + (x_norm * width);
+        double y = y_min + (y_norm * height);
+        if (is_in_mandelbrot(x, y)){
+            out += 1;
+        }
+    }
+    return out;
+}
 
 __global__ void hello_world_gpu()
 {
