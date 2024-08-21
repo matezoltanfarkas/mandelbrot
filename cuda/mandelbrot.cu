@@ -1,8 +1,12 @@
 #include <stdio.h>
 #include <iostream>
 #include <cmath>
+#include <vector>
+#include <random>
 
 using namespace std;
+
+const int NUM_TILES_1D = 100;
 
 __global__ void hello_world_gpu()
 {
@@ -26,6 +30,15 @@ double wald_uncertainty(double numer, double denom)
 
   double frac = numer / denom;
   return sqrt(frac * (1.0 - frac) / denom);
+}
+
+void compute_until(mt19937 random_generators[], double numer[], double denom[], double uncert[], double uncert_target)
+{
+  for (int i = 0; i < NUM_TILES_1D; i++)
+    for (int j = 0; j < NUM_TILES_1D; j++)
+    {
+      mt19937 rng = random_generators[NUM_TILES_1D * i + j];
+    }
 }
 
 int main(int argc, char *argv[])
