@@ -40,11 +40,11 @@ bool is_in_mandelbrot(const double x, const double y)
   }
 }
 
-__global__ void count_mandelbrot(const double *x, const double *y, int *ct) {
+__global__ void count_mandelbrot(const double *x, const double *y, const int tile_idx, int *ct) {
     int start = threadIdx.x + blockDim.x * blockIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int j = start; j < SAMPLES_IN_BATCH; j+=stride) {
-        ct+=is_in_mandelbrot(x[j], y[j])
+        ct[tile_idx] += is_in_mandelbrot(x[tile_idx][j], y[tile_idx][j])
     }
 }
 
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
                 int tile_idx = i * NUM_TILES_1D + j;
                 if uncert[tile_idx] > uncert_limit {
                     workingFlag = true;
-                    count_mandelbrot<<<gridDim, blockDim>>>(x_d[tile_idx], y_d[tile_idx], &enumer_d[tile_idx])
+                    count_mandelbrot<<<gridDim, blockDim>>>(x_d, y_d, tile_idx, &enumer_d)
                 }
             }
         }
@@ -142,5 +142,5 @@ int main(int argc, char *argv[]) {
             cudaFree(y_d[tile_idx]);
         }
     }
-    
+    return 0;   
 }
