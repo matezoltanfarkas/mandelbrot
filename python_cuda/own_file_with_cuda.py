@@ -1,4 +1,5 @@
 import math
+import timeit
 import numpy as np
 import cupy as cp
 import numba as nb
@@ -16,7 +17,7 @@ import matplotlib.pyplot as plt
 WARP_SIZE = 32
 NUM_TILES_1D = 3200 # per dimension
 NUM_BLOCKS_1D = (NUM_TILES_1D + WARP_SIZE - 1) // WARP_SIZE
-
+CONFIDENCE_LEVEL = 0.05
 
 @nb.cuda.jit(device=True)
 def wald_uncertainty(numer, denom):
@@ -33,8 +34,26 @@ def wald_uncertainty(numer, denom):
 
 @nb.cuda.jit(device=True)
 def is_in_mandelbrot(x, y):
+    # Boundary checks. See Figure
+    if x < -2.0 or x > 0.49 or y < -1.15 or y > 1.15:
+        return False
+    if x*x + y*y > 4.0:  # Equivalent to |c| >= 2
+        return False
+
+    # Check if the point is inside the smaller bulb (left of the main cardioid)
+    if (x + 1)**2 + y**2 < 0.0625:
+        return True  # Points inside the smaller bulb are in the Mandelbrot set
+    
+    # Check if the point is inside the large cardioid bulb
+    r = np.float32(0.25)
+    x_shifted = x - np.float32(0.25)
+    q = (x_shifted)**2 + y**2
+    if (q + 2 * r * x_shifted)**2 - 4 * r**2 * q < 0:
+        return True  # Points inside the large cardioid bulb are in the Mandelbrot set
+
     c = np.complex64(x) + np.complex64(y) * np.complex64(1j)
     z_hare = z_tortoise = np.complex64(0)
+
     while True:
         z_hare = z_hare * z_hare + c
         z_hare = z_hare * z_hare + c  # hare does one step more to get ahead of the tortoise
@@ -95,8 +114,6 @@ blocks_per_grid = (NUM_BLOCKS_1D, NUM_BLOCKS_1D)
 # Run the CUDA kernel
 compute_until[blocks_per_grid, threads_per_block](rng_states, numer, denom, uncert, uncert_target, width, height, NUM_TILES_1D)
 
-nb.cuda.synchronize()
-
 # Copy the results back to the host if needed
 numer  = cp.asnumpy(numer)
 denom  = cp.asnumpy(denom)
@@ -118,20 +135,42 @@ print(np.unique(denom))
 
 print('--------------------------------')
 
+print('Uncertainties')
+print(uncert.shape)
+print(uncert)
+print(np.unique(denom))
+
+print('--------------------------------')
+
 final_value = (np.sum((numer / denom)) * width * height).item()
 print(final_value)
 
 
 fig, ax, p = plot_pixels(numer / denom, dpi=80)
 fig.colorbar(p, ax=ax, shrink=0.8, label="fraction of sampled points in Mandelbrot set in each tile")
-plt.savefig('my_figure.pdf')
-
-
-CONFIDENCE_LEVEL = 0.05
+plt.savefig('my_mandelbrot.pdf')
 
 confidence_interval_low, confidence_interval_high = confidence_interval(
     CONFIDENCE_LEVEL, numer, denom, width * height
 )
+
+fig, ax, p = plot_pixels(confidence_interval_high - confidence_interval_low, dpi=80)
+fig.colorbar(p, ax=ax, shrink=0.8, label="size of 95% confidence interval (in units of area) of each tile")
+plt.savefig('my_uncertainties.pdf')
+
+# Assuming confidence_interval_high and confidence_interval_low are arrays with your data
+uncertainties = confidence_interval_high - confidence_interval_low
+
+# Calculate the 90th percentile threshold
+percentile_90 = np.percentile(uncertainties, 98)
+
+# Mask the uncertainties array
+masked_uncertainties = np.ma.masked_where(uncertainties < percentile_90, uncertainties)
+
+# Plotting the masked uncertainties
+fig, ax, p = plot_pixels(masked_uncertainties, dpi=80)
+fig.colorbar(p, ax=ax, shrink=0.8, label="size of 95% confidence interval (in units of area) of each tile")
+plt.savefig('my_uncertainties_top_10_percent.pdf')
 
 final_uncertainty = combine_uncertaintes(
     confidence_interval_low, confidence_interval_high, denom
