@@ -46,5 +46,5 @@ plt.xlabel("Re(x)")
 plt.ylabel("Im(x)")
 plt.title("Mandelbrot Set with Boundaries for Pre-checks")
 plt.legend()
-
-plt.savefig('Boundaries.pdf')
+plt.tight_layout()
+plt.savefig('Boundaries.png', dpi=800)

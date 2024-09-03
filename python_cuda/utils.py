@@ -78,7 +78,7 @@ def wald_uncertainty(numer, denom):
 
     return np.sqrt(frac * (1 - frac) / denom)
 
-
+@nb.njit(parallel=True)
 def combine_uncertainties(
     confidence_interval_low, confidence_interval_high, denominator
 ):

@@ -7,7 +7,7 @@ from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform
 
 from utils import (
     plot_pixels,
-    combine_uncertaintes,
+    combine_uncertainties,
     confidence_interval
 )
 
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 
 WARP_SIZE = 32
-NUM_TILES_1D = 3200 # per dimension
+NUM_TILES_1D = 32 # per dimension
 NUM_BLOCKS_1D = (NUM_TILES_1D + WARP_SIZE - 1) // WARP_SIZE
 CONFIDENCE_LEVEL = 0.05
 
@@ -100,7 +100,7 @@ ymin, ymax = -1.5, 1.5
 
 width  = np.float32(3.0 / NUM_TILES_1D)
 height = np.float32(3.0 / NUM_TILES_1D)
-uncert_target = 1e-8
+uncert_target = 7e-10
 
 # Allocate GPU memory
 # Use int instead of float when appropriate
@@ -121,24 +121,24 @@ uncert = cp.asnumpy(uncert)
 
 print('--------------------------------')
 
-print('Numerator')
-print(numer.shape)
-print(numer)
-print(np.unique(numer))
+#print('Numerator')
+#print(numer.shape)
+#print(numer)
+#print(np.unique(numer))
 
 print('--------------------------------')
 
-print('Denominator')
-print(denom.shape)
-print(denom)
-print(np.unique(denom))
+#print('Denominator')
+#print(denom.shape)
+#print(denom)
+#print(np.unique(denom))
 
 print('--------------------------------')
 
-print('Uncertainties')
-print(uncert.shape)
-print(uncert)
-print(np.unique(denom))
+#print('Uncertainties')
+#print(uncert.shape)
+#print(uncert)
+#print(np.unique(denom))
 
 print('--------------------------------')
 
@@ -172,7 +172,7 @@ fig, ax, p = plot_pixels(masked_uncertainties, dpi=80)
 fig.colorbar(p, ax=ax, shrink=0.8, label="size of 95% confidence interval (in units of area) of each tile")
 plt.savefig('my_uncertainties_top_10_percent.pdf')
 
-final_uncertainty = combine_uncertaintes(
+final_uncertainty = combine_uncertainties(
     confidence_interval_low, confidence_interval_high, denom
 )
 print(final_uncertainty)
